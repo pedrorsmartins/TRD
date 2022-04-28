@@ -1,0 +1,6 @@
+Train torget RMSE: 1.96
+Train torget R^2: 0.94
+Test torget RMSE: 2.90
+Test torget R^2: -0.46
+Test torget RMSE: 2.23
+Test torget sensor R^2: 0.91
