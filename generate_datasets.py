@@ -72,7 +72,6 @@ def get_data_nilu(start_time,end_time,sensors,components):
     output = pd.DataFrame()
     output['Time'] = pd.date_range(start_time,end_time,freq='H',closed='right')
     output = output.set_index('Time')
-    components=['pm25']
     for s in sensors:
     #Sanity check because name might differ
         if s == 'torget':
@@ -252,8 +251,8 @@ def get_data_micro_sensors(start_time, end_time, sensors, components):
     return df_iot
 
 
-start_time = pd.Timestamp(year=2022,month=4,day=10,hour=12)
-end_time = pd.Timestamp(year=2022,month=4,day=26,hour=12)
+start_time = pd.Timestamp(year=2022,month=3,day=11,hour=12)
+end_time = pd.Timestamp(year=2022,month=4,day=26,hour=11)
 
 
 df = pd.DataFrame()
@@ -261,7 +260,7 @@ df['Time'] = pd.date_range(start_time,end_time,freq='H',closed='right')
 df = df.set_index('Time')
 
 sensors = ['elgeseter']
-components=['pm25']
+components=['pm10']
 
 df_nilu = get_data_nilu(start_time,end_time,sensors,components)
 

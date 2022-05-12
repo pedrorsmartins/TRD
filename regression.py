@@ -21,13 +21,13 @@ train_percentage = 0.75
 
 train_sensor = 'torget'
 test_sensor = 'torget'
-pollutant = 'pm25'
+pollutant = 'pm10'
 
-path_to_dataset = 'data/dump_esp8266-244085-13543340.csv'
-#path_to_dataset = 'data/dump_esp8266-244085-240636.csv'
-#path_to_dataset = 'data/dump_esp8266-244085.csv'
-#path_to_dataset = 'data/dump_esp8266-240636.csv'
-#path_to_dataset = 'data/dump_esp8266-13543340.csv'
+#path_to_dataset = 'data/pm10/dump_esp8266-244085-13543340.csv'
+#path_to_dataset = 'data/pm10/dump_esp8266-244085-240636.csv'
+#path_to_dataset = 'data/pm10/dump_esp8266-244085.csv'
+#path_to_dataset = 'data/pm10/dump_esp8266-240636.csv'
+path_to_dataset = 'data/pm10/dump_esp8266-13543340.csv'
 
 save_model = False
 
