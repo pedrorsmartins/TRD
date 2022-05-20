@@ -155,7 +155,7 @@ test_rf_predictions = model.predict(test)
 from sklearn import datasets, linear_model
 from sklearn.metrics import mean_squared_error, r2_score
 
-def plot_predictions(labels,predictions):
+def plot_predictions(labels,predictions,title):
     fontsize = 20
     fig_x_size = 17.14
     fig_y_size = 10
@@ -175,7 +175,8 @@ def plot_predictions(labels,predictions):
     plt.ylabel(r'Predicted concentration ($\mu$g/m$^3$)',fontsize=fontsize)
     plt.xlabel(r'Observed concentration ($\mu$g/m$^3$)',fontsize=fontsize)
     plt.yticks(fontsize=fontsize) 
-    plt.xticks(fontsize=fontsize)   
+    plt.xticks(fontsize=fontsize) 
+    plt.title(title,fontsize=30)  
     #plt.xticks(())
     #plt.yticks(())
     #plt.text(60, 10, 'R-squared = %0.2f' % r2_score(x,y))
@@ -185,7 +186,7 @@ def plot_predictions(labels,predictions):
     
     print('Coefficients: {}x + {}'.format(regr.coef_,regr.intercept_))
 
-plot_predictions(test_labels,test_rf_predictions)
+plot_predictions(test_labels,test_rf_predictions,'Test')
 
 fi_model = pd.DataFrame({'feature': features,
                 'importance': model.feature_importances_}).\
