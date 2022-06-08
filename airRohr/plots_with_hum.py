@@ -44,7 +44,7 @@ for title,path in zip(titles_pm25,path_to_dataset_pm25):
   aux+=1
   df = pd.read_csv(path)
 
-  fig, axs = plt.subplots(figsize=(100, 7))
+  fig, ax1 = plt.subplots(figsize=(100, 7))
   plt.plot(df['Time'].to_numpy(), df['torget_pm25_nilu'].to_numpy(),label='NILU')
   plt.plot(df['Time'].to_numpy(), df['torget_pm25_iot'].to_numpy(),label='airRohr')
   plt.legend()
