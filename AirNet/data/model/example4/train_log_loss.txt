@@ -1,0 +1,9 @@
+PM25
+0.1302	smape_loss_best
+0.769	mae_loss_best
+PM25
+0.1334	smape_loss_best
+0.813	mae_loss_best
+PM25
+0.1306	smape_loss_best
+0.808	mae_loss_best

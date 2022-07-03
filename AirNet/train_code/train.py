@@ -185,17 +185,17 @@ def evaluate(ii, data, X,XY, Y, encoder,encoder2, decoder, evaluateL2, evaluateL
 
 
 def process_feature(wx_gk, train_window, train_val, val_test):
-    gk_columns = wx_gk.columns[-6:].tolist()
+    gk_columns = wx_gk.columns[-2:].tolist()
     gk_columns.append('RECEIVETIME')
-    wx_df = wx_gk[wx_gk.columns[:-6]]
+    wx_df = wx_gk[wx_gk.columns[:-2]]
     gk_df = wx_gk[gk_columns]
     gk_df['RECEIVETIME'] = format_time(gk_df['RECEIVETIME'])
     wx_df['RECEIVETIME'] = format_time(wx_df['RECEIVETIME'])
 
-    wx_df['ZUFEN'] = wx_df['PM25_x'] / wx_df['PM10_x']
-    wx_df['PM_SUM'] = wx_df['PM10N'] + wx_df['PM25N'] + wx_df['PM1N'] + wx_df['PM05N']
-    wx_df['PM10N_ratio'] = wx_df['PM10N'] / wx_df['PM_SUM']
-    wx_df['PM25N_ratio'] = wx_df['PM25N'] / wx_df['PM_SUM']
+    # wx_df['ZUFEN'] = wx_df['PM25_x'] / wx_df['PM10_x']
+    # wx_df['PM_SUM'] = wx_df['PM10N'] + wx_df['PM25N'] + wx_df['PM1N'] + wx_df['PM05N']
+    # wx_df['PM10N_ratio'] = wx_df['PM10N'] / wx_df['PM_SUM']
+    # wx_df['PM25N_ratio'] = wx_df['PM25N'] / wx_df['PM_SUM']
 
 
 
@@ -211,14 +211,14 @@ def process_feature(wx_gk, train_window, train_val, val_test):
 
 
 
-    X_train = all_df_train[all_df_train.columns[:-6]]
-    y_train = all_df_train[all_df_train.columns[-6:]]
+    X_train = all_df_train[all_df_train.columns[:-2]]
+    y_train = all_df_train[all_df_train.columns[-2:]]
 
-    X_val = all_df_val[all_df_val.columns[:-6]]
-    y_val = all_df_val[all_df_val.columns[-6:]]
+    X_val = all_df_val[all_df_val.columns[:-2]]
+    y_val = all_df_val[all_df_val.columns[-2:]]
 
-    X_predict = all_df_predict[all_df_predict.columns[:-6]]
-    y_predict = all_df_predict[all_df_predict.columns[-6:]]
+    X_predict = all_df_predict[all_df_predict.columns[:-2]]
+    y_predict = all_df_predict[all_df_predict.columns[-2:]]
 
 
     return X_train, y_train, X_val, y_val, X_predict, y_predict
@@ -266,7 +266,7 @@ def trainIters(ii, data, X, XY, Y,encoder,encoder1, decoder, batch_size,criterio
     encoder.train()
     encoder1.train()
     decoder.train()
-    n_samples = 0;
+    n_samples = 0
     print_loss_total = 0
     plot_loss_total = 0
 
@@ -290,9 +290,9 @@ def trainIters(ii, data, X, XY, Y,encoder,encoder1, decoder, batch_size,criterio
         loss = criterion(decoder_output[0,:,:], Y)
         loss.backward()
 
-        optim1.step();
-        optim1_2.step();
-        optim2.step();
+        optim1.step()
+        optim1_2.step()
+        optim2.step()
 
 
         print_loss_total += loss.item()
@@ -319,9 +319,7 @@ def train(wx_gk, wx_title, file_pre=''):
 
         X_train, y_train, X_val, y_val, X_predict, y_predict = process_feature(wx_gk, train_window, train_val, val_test)
 
-        title = ['CO_x', 'NO2_x', 'SO2_x', 'O3_x', 'PM25_x', 'PM10_x', 'TEMPERATURE', 'HUMIDITY', 'PM05N', 'PM1N',
-                 'PM25N', 'PM10N', 'PM_SUM', 'ZUFEN',
-                 'PM10N_ratio', 'PM25N_ratio']
+        title = ['PM25_x', 'PM10_x', 'TEMPERATURE', 'HUMIDITY']
 
         scaler = preprocessing.MinMaxScaler().fit(X_train[title])
 
@@ -330,7 +328,7 @@ def train(wx_gk, wx_title, file_pre=''):
         X_val[title] = scaler.transform(X_val[title])
         X_predict[title] = scaler.transform(X_predict[title])
 
-        titles = ['O3']  # or ,'CO'
+        titles = ['PM25']  # or ,'CO'
         ii = 0
         f_log_all = open(os.path.join(wx_model_root_path, 'train_log_loss.txt'), 'a')
         predict_value_path = wx_model_root_path + '/' + 'value.csv'
@@ -505,11 +503,12 @@ def train(wx_gk, wx_title, file_pre=''):
         pd.DataFrame(np.array(y_predict_value).transpose((1, 0)), columns=titles).to_csv(predict_value_path)
 
 
-        print >> f_log_all, '\t'.join(titles)
+        print('\t'.join(titles), file=f_log_all)
 
-        print >> f_log_all, '\t'.join(smape_loss_list_best) + '\t' + 'smape_loss_best'
+        print('\t'.join(smape_loss_list_best) + '\t' + 'smape_loss_best', file=f_log_all)
 
-        print >> f_log_all, '\t'.join(mae_loss_list_best) + '\t' + 'mae_loss_best'
+        print('\t'.join(mae_loss_list_best) + '\t' + 'mae_loss_best', file=f_log_all)
+
 
         f_log_all.close()
 

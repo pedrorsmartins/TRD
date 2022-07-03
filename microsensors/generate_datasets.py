@@ -1,7 +1,11 @@
-import pandas as pd
-import time
-import numpy as np
 
+
+import requests
+import json
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import urllib
 import argparse
 import cgi
 import datetime
@@ -9,11 +13,6 @@ import os
 import shutil
 import urllib.request
 
-import urllib
-
-import requests
-import json
-import matplotlib.pyplot as plt
 
 def get_data_met(client_id, source, elements, start_date, end_date):
   
@@ -56,10 +55,10 @@ def get_data_met(client_id, source, elements, start_date, end_date):
     df.index=df.index.tz_localize(None)
 
     output = pd.DataFrame()
-    output['time'] = pd.date_range(start_date,end_date,freq='H',closed='left')
-    output = output.set_index('time')
-    #output['time'] = df['referenceTime'].unique()
-    #output.set_index('time',inplace=True)
+    output['Time'] = pd.date_range(start_date,end_date,freq='H',closed='left')
+    output = output.set_index('Time')
+    #output['Time'] = df['referenceTime'].unique()
+    #output.set_index('Time',inplace=True)
     output.index = output.index.tz_localize(None)
     for e in elements:
         #output[e] = df['value'][df['elementId']==e].values
@@ -69,13 +68,10 @@ def get_data_met(client_id, source, elements, start_date, end_date):
     
     return output
 
-
-
 def get_data_nilu(start_time,end_time,sensors,components):
     output = pd.DataFrame()
-    output['time'] = pd.date_range(start_time,end_time,freq='H',closed='right')
-    output = output.set_index('time')
-    
+    output['Time'] = pd.date_range(start_time,end_time,freq='H',closed='right')
+    output = output.set_index('Time')
     for s in sensors:
     #Sanity check because name might differ
         if s == 'torget':
@@ -115,7 +111,8 @@ def get_data_nilu(start_time,end_time,sensors,components):
     ind = [i for i, x in enumerate(output.index.duplicated()) if x]
     output = output.drop(output.index[ind])
       
-    return output    
+    return output
+
 
 url_traffic = "https://www.vegvesen.no/trafikkdata/api/export?from={startDate}&resolution={timespan}&to={endDate}&trpIds={id}"
 
@@ -123,11 +120,11 @@ def get_data_traffic_csv(sensor_ids, start_date, end_date, timespan, only_total=
     df = {}
     
     #Read aux file with location of all sensors within the city limits
-    sensor_loc = pd.read_csv('../data/traffic_sensor_location.csv',delimiter=';')
+    sensor_loc = pd.read_csv('data/traffic_sensor_location.csv',delimiter=';')
     
     df_out = pd.DataFrame()
-    df_out['time'] = pd.date_range(start_date,end_date,freq='H',closed='right')
-    df_out.set_index('time',inplace=True)
+    df_out['Time'] = pd.date_range(start_date,end_date,freq='H',closed='right')
+    df_out.set_index('Time',inplace=True)
 
     for sensor in sensor_ids:
         sensor_url = url_traffic.format(timespan=timespan,startDate=start_date.strftime('%Y-%m-%d'), endDate=end_date.strftime('%Y-%m-%d'), id=sensor)
@@ -170,7 +167,8 @@ def get_data_traffic_csv(sensor_ids, start_date, end_date, timespan, only_total=
         df_out = df_out.join(df[sensor][df[sensor]['Felt'] == 'Totalt']['Volum'])
         df_out.rename(columns={'Volum':sensor+'_'+'Total'}, inplace=True)
         
-    return df_out
+    return df_out    
+
 micro_ids = {
     ##########################
     #Central Trondheim
@@ -210,81 +208,98 @@ micro_ids = {
             }
 #########################################
 
-def get_data_micro_sensors(file, start_time, end_time, sensors, components):
-    con = sqlite3.connect(file)
+def get_data_micro_sensors(start_time, end_time, sensors, components):
+    df_tmp = pd.read_csv('data/esp8266-240636.csv',delimiter=',')
+
+    sensors = ['elgeseter']
+    components = ['SDS011 PM2.5']
 
     df_iot = pd.DataFrame()
-    df_iot['time']=pd.date_range(start_time,end_time,freq='H',closed='right')
-    df_iot.set_index('time',inplace=True)
+    df_iot['Time']=pd.date_range(start_time,end_time,freq='H',closed='right')
+    df_iot.set_index('Time',inplace=True)
 
     for sensor_name in sensors:
-        print(sensor_name)
-        df_tmp = pd.read_sql_query("SELECT * from messages WHERE device_id='{}'".format(micro_ids[sensor_name]), con)
-
-        df_tmp['received_time'] = pd.to_datetime(df_tmp['received_time'], unit='ms')
-        df_tmp.set_index('received_time',inplace=True)
+        df_tmp['Time'] = pd.to_datetime(df_tmp['Time'])
+        df_tmp.set_index('Time',inplace=True)
         #df_tmp.index = df_tmp.index.tz_localize(None)
 
         if start_time != None:
             df_tmp = df_tmp[df_tmp.index >= start_time]
-    
+
         if end_time != None:
             df_tmp = df_tmp[df_tmp.index <= end_time]
 
         #Aggregate by hour (with average)
         df_tmp = df_tmp[components].resample('H',label='right').mean()
-        
         for component in components:
             df_iot[sensor_name+'_'+component] = df_tmp[component]
-            
-    con.close()
-    
+
+        components = ['DHT22 temperature','DHT22 humidity']
+        df_temp_hum = pd.read_csv('data/esp8266-244085_temp.csv',delimiter=',')
+
+        df_temp_hum = df_temp_hum.merge(pd.read_csv('data/esp8266-244085_hum.csv',delimiter=','),on='Time', how='left')
+        df_temp_hum['Time'] = pd.to_datetime(df_temp_hum['Time'])
+        df_temp_hum = df_temp_hum.set_index('Time').resample('H').mean()
+        df_temp_hum = df_temp_hum[components].resample('H',label='right').mean()
+
+        df_iot = df_iot.merge(df_temp_hum,on='Time', how='left')
+        
+        for component in components:
+            df_iot[sensor_name+'_'+component] = df_temp_hum[component]
+                  
+        
     return df_iot
 
-start_time = pd.Timestamp(year=2020,month=11,day=15,hour=0)
-end_time = pd.Timestamp(year=2021,month=8,day=18,hour=0)
-
-df = pd.DataFrame()
-df['time'] = pd.date_range(start_time,end_time,freq='H',closed='right')
+df = pd.read_csv('microsensors/data/dump_only_micro_sensors.csv',delimiter=',')
+#df['Time'] = pd.date_range(start_time,end_time,freq='H',closed='right')
 df = df.set_index('time')
 
-#Fetch NILU data for given station and components, in the given period
 sensors = ['elgeseter','torget']
-components = ['pm25','pm10']
+components=['pm25','pm10']
 
-df_nilu = get_data_nilu(start_time,end_time,sensors,components)
+start_time = pd.Timestamp(df.index[0])
+end_time = pd.Timestamp(df.index[len(df)-1])
+
+#df_nilu = get_data_nilu(start_time,end_time,sensors,components)
+#df_nilu = get_data_nilu(pd.Timestamp('2021-10-31 00:00:00'),pd.Timestamp('2021-10-31 05:00:00'),sensors,components)
+df_nilu = get_data_nilu(pd.Timestamp('2021-03-28 00:00:00'),pd.Timestamp('2021-03-28 05:00:00'),sensors,components)
 
 for component in components:
     for sensor in sensors:
         df[sensor+'_'+component+'_nilu'] = df_nilu[sensor+'_'+component]
 
-#Example code. First define inputs and run data fetching script
-sensors = ['elgeseter','torget']
-filepath = '/home/tsveiga/Work/NTNU/AirQuality/data-dumps/aq-micro-sensors.db'
-components = ['pm1','pm25','pm10','opctemp','opchum']
 
-df_iot = get_data_micro_sensors(file=filepath,sensors=sensors,components=components, start_time=start_time, end_time=end_time)
+# df_iot = get_data_micro_sensors(sensors=sensors,components=components, start_time=start_time, end_time=end_time)
 
-for component in components:
-    for sensor in sensors:
-        df[sensor+'_'+component+'_iot'] = df_iot[sensor+'_'+component]
+# components = ['SDS011 PM2.5','DHT22 temperature','DHT22 humidity']
 
-#There are some erroneous temperature measurements from the board. Replace all unrealistic values (let's say higher than 100) with NaNs
-for sensor in sensors:
-    df.loc[df[sensor+'_opctemp_iot'] > 100,sensor+'_opctemp_iot'] = None        
+# for component in components:
+#     for sensor in sensors:
+#         df[sensor+'_'+component+'_iot'] = df_iot[sensor+'_'+component]
 
-client_id = '96f63ab5-8a9e-42e2-94a5-7fdbfcf90f0c'
+# #There are some erroneous temperature measurements from the board. Replace all unrealistic values (let's say higher than 100) with NaNs
+# for sensor in sensors:
+#     df.loc[df[sensor+'_DHT22 temperature_iot'] > 100,sensor+'_DHT22 temperature_iot'] = None
 
-source = 'SN68860'
-elements = ['air_temperature','relative_humidity','sum(precipitation_amount PT1H)','surface_air_pressure','wind_speed','wind_from_direction'] #['surface_air_pressure','air_temperature','relative_humidity','sum(precipitation_amount PT1H)','wind_speed','wind_from_direction']
 
-df = df.join(get_data_met(client_id,source, elements, start_time, end_time))
 
-df.rename(columns={"surface_air_pressure": "air_pressure", "sum(precipitation_amount PT1H)": "precipitation", "wind_from_direction": "wind_direction"}, inplace=True)
 
-sensor_ids=['16219V72812','44656V72812','10236V72161']
+# client_id = 'fbd8dc01-4c48-420f-9f66-79ffe28a71bb'
 
-df = df.join(get_data_traffic_csv(sensor_ids, start_time, end_time,timespan='HOUR',only_total=True))
+# source = 'SN68860'
+# elements = ['air_temperature','relative_humidity','sum(precipitation_amount PT1H)','surface_air_pressure','wind_speed','wind_from_direction'] #['surface_air_pressure','air_temperature','relative_humidity','sum(precipitation_amount PT1H)','wind_speed','wind_from_direction']
 
-df.to_csv('../data/dump_with_all_features.csv')
+# df = df.join(get_data_met(client_id,source, elements, start_time, end_time))
 
+# df.rename(columns={"surface_air_pressure": "air_pressure", "sum(precipitation_amount PT1H)": "precipitation", "wind_from_direction": "wind_direction"}, inplace=True)
+
+
+#sensor_ids=['16219V72812','44656V72812','10236V72161']
+#df = df.join(get_data_traffic_csv(sensor_ids, start_time, end_time,timespan='HOUR',only_total=True))
+
+
+df.to_csv('microsensors/data/32dump_with_all_features.csv')
+
+
+
+print('Hello')

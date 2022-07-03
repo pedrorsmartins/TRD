@@ -6,41 +6,36 @@ import sqlite3
 from sklearn.metrics import mean_squared_error
 
 use_temporal_features = True
-use_opc_weather = False
-use_opc_weather = False
+use_opc_weather = True
 use_weather = False
 use_only_temp_hum = True
 use_traffic = False
 use_all_pm = False
-use_no_pm = False
 
 split_by_time = True
 split_random = not split_by_time
 
-train_percentage = 0.75
+train_percentage = 0.8
 
 train_sensor = 'torget'
-test_sensor = 'torget'
+test_sensor = 'elgeseter'
 pollutant = 'pm10'
 
-#path_to_dataset = 'data/pm10/dump_esp8266-244085-13543340.csv'
-#path_to_dataset = 'data/pm10/dump_esp8266-244085-240636.csv'
-#path_to_dataset = 'data/pm10/dump_esp8266-244085.csv'
-#path_to_dataset = 'data/pm10/dump_esp8266-240636.csv'
+path_to_dataset = 'microsensors/data/dump_nilu_micro_sensors.csv'
 
 save_model = False
 
 df = pd.read_csv(path_to_dataset)
 
 
-# df = df.set_index('Time')
+# df = df.set_index('time')
 
 # print(df.head())
 # print(df.columns)
 
 if use_temporal_features == True:
     import datetime
-    df = df.set_index(pd.to_datetime(df['Time'],utc=True))
+    df = df.set_index(pd.to_datetime(df['time'],utc=True))
     df['hour_of_day'] = df.index.hour + 1
     #df['month_of_year'] = df.index.month
     df['day_of_week'] = df.index.dayofweek
@@ -48,40 +43,44 @@ if use_temporal_features == True:
     #df['day_of_year'] = df.index.dayofyear
     #df['season'] = (df.index.month%12 + 3)//3
     df.reset_index(drop=True,inplace=True)
-    df = df.drop(columns='Time')
+    df = df.drop(columns='time')
     
 
-df = df.dropna()
+# df = df.dropna(axis=0)
 
 # if use_weather == False:
 #     df = df.drop(['air_temperature','wind_speed','precipitation','relative_humidity','air_pressure','wind_direction'], axis=1)
 
-# if use_weather == True and use_only_temp_hum == True:
-#     df = df.drop(['wind_speed','precipitation','air_pressure','wind_direction'], axis=1)
+if use_weather == True and use_only_temp_hum == True:
+    df = df.drop(['wind_speed','precipitation','air_pressure','wind_direction'], axis=1)
     
-# if use_opc_weather == False:
-#     df = df.drop(['elgeseter_opctemp_iot','elgeseter_opchum_iot','torget_opctemp_iot','torget_opchum_iot'], axis=1)
+if use_opc_weather == False:
+    df = df.drop(['elgeseter_opctemp','elgeseter_opchum','torget_opctemp','torget_opchum'], axis=1)
     
 # if use_traffic == False:
 #     df = df.drop(['16219V72812_Total','44656V72812_Total','10236V72161_Total'],axis=1)
     
-# #Remove columns with data from other sensors
-# df = df.drop(df.columns[~df.columns.str.startswith(train_sensor) & df.columns.str.endswith('iot')],axis=1)
+#Remove columns with data from other sensors
+df = df.drop(df.columns[~df.columns.str.startswith(train_sensor)],axis=1)
 
-# if use_all_pm == False:
-#     df = df.drop(df.columns[df.columns.str.startswith(train_sensor) & df.columns.str.contains('pm') & ~df.columns.str.contains(pollutant) & df.columns.str.endswith('iot')],axis=1)
+if use_all_pm == False:
+    df = df.drop(df.columns[df.columns.str.startswith(train_sensor) & df.columns.str.contains('pm') & ~df.columns.str.contains(pollutant)],axis=1)
     
-# if use_no_pm == True:
-#     df = df.drop(df.columns[df.columns.str.endswith('iot')],axis=1)
 
-# #Remove nilu data which is not the target
-# #1) Remove data from other sensors; 2) remove data from the target sensor which is not the target pollutant
-# df = df.drop(df.columns[~df.columns.str.startswith(train_sensor) & df.columns.str.endswith('nilu')],axis=1)
-# df = df.drop(df.columns[df.columns.str.startswith(train_sensor) & ~df.columns.str.contains(pollutant) & df.columns.str.endswith('nilu')],axis=1)
+#Remove nilu data which is not the target
+#1) Remove data from other sensors; 2) remove data from the target sensor which is not the target pollutant
+df = df.drop(df.columns[~df.columns.str.startswith(train_sensor) & df.columns.str.endswith('nilu')],axis=1)
+df = df.drop(df.columns[df.columns.str.startswith(train_sensor) & ~df.columns.str.contains(pollutant) & df.columns.str.endswith('nilu')],axis=1)
 
-# df = df.drop(['time'],axis=1)
+#df = df.drop(['time'],axis=1)
 
-# df = df.dropna()
+
+
+# if train_sensor == 'torget':
+#     df['torget_'+pollutant]=df['torget_'+pollutant]+df['torget_new'+pollutant]
+#     df = df.drop(df.columns[df.columns.str.startswith('torget_new')],axis=1)
+
+df = df.dropna()
 
 # Set random seed to ensure reproducible runs
 RSEED = 50
@@ -104,8 +103,8 @@ elif split_random == True:
                                                           test_size = (1-train_percentage), 
                                                           random_state = RSEED)
 
-# train = train.dropna()
-# test = test.dropna()
+train = train.dropna()
+test = test.dropna()
 
 # Features for feature importances
 features = list(train.columns)
@@ -185,7 +184,7 @@ def plot_predictions(labels,predictions,title):
     
     print('Coefficients: {}x + {}'.format(regr.coef_,regr.intercept_))
 
-plot_predictions(test_labels,test_rf_predictions,'Test')
+plot_predictions(test_labels,test_rf_predictions, str(train_sensor) + ' as train sensor')
 
 fi_model = pd.DataFrame({'feature': features,
                 'importance': model.feature_importances_}).\
@@ -202,7 +201,7 @@ df = pd.read_csv(path_to_dataset)
 
 if use_temporal_features == True:
     import datetime
-    df = df.set_index(pd.to_datetime(df['Time'],utc=True))
+    df = df.set_index(pd.to_datetime(df['time'],utc=True))
     df['hour_of_day'] = df.index.hour+1
     #df['month_of_year'] = df.index.month
     df['day_of_week'] = df.index.dayofweek
@@ -215,39 +214,63 @@ if use_temporal_features == True:
 # if use_weather == False:
 #     df = df.drop(['air_temperature','wind_speed','precipitation','relative_humidity','air_pressure','wind_direction'], axis=1)
 
-# if use_weather == True and use_only_temp_hum == True:
-#     df = df.drop(['wind_speed','precipitation','air_pressure','wind_direction'], axis=1)
+if use_weather == True and use_only_temp_hum == True:
+    df = df.drop(['wind_speed','precipitation','air_pressure','wind_direction'], axis=1)
     
-# if use_opc_weather == False:
-#     df = df.drop(['elgeseter_opctemp_iot','elgeseter_opchum_iot','torget_opctemp_iot','torget_opchum_iot'], axis=1)
+if use_opc_weather == False:
+    df = df.drop(['elgeseter_opctemp_iot','elgeseter_opchum_iot','torget_opctemp_iot','torget_opchum_iot'], axis=1)
     
 # if use_traffic == False:
 #     df = df.drop(['16219V72812_Total','44656V72812_Total','10236V72161_Total'],axis=1)
     
-# #Remove columns with data from other sensors
-# df = df.drop(df.columns[~df.columns.str.startswith(test_sensor) & df.columns.str.endswith('iot')],axis=1)
+#Remove columns with data from other sensors
+df = df.drop(df.columns[~df.columns.str.startswith(test_sensor)],axis=1)
 
-# if use_all_pm == False:
-#     df = df.drop(df.columns[df.columns.str.startswith(test_sensor) & df.columns.str.contains('pm') & ~df.columns.str.contains(pollutant) & df.columns.str.endswith('iot')],axis=1)
+if use_all_pm == False:
+    df = df.drop(df.columns[df.columns.str.startswith(test_sensor) & df.columns.str.contains('pm') & ~df.columns.str.contains(pollutant)],axis=1)
     
-# if use_no_pm == True:
-#     df = df.drop(df.columns[df.columns.str.endswith('iot')],axis=1)
 
-# #Remove nilu data which is not the target
-# #1) Remove data from other sensors; 2) remove data from the target sensor which is not the target pollutant
-# df = df.drop(df.columns[~df.columns.str.startswith(test_sensor) & df.columns.str.endswith('nilu')],axis=1)
-# df = df.drop(df.columns[df.columns.str.startswith(test_sensor) & ~df.columns.str.contains(pollutant) & df.columns.str.endswith('nilu')],axis=1)
+#Remove nilu data which is not the target
+#1) Remove data from other sensors; 2) remove data from the target sensor which is not the target pollutant
+df = df.drop(df.columns[~df.columns.str.startswith(test_sensor) & df.columns.str.endswith('nilu')],axis=1)
+df = df.drop(df.columns[df.columns.str.startswith(test_sensor) & ~df.columns.str.contains(pollutant) & df.columns.str.endswith('nilu')],axis=1)
 
-df = df.drop(['Time'],axis=1)
+# if train_sensor or test_sensor == 'torget':
+#     df['torget_'+pollutant]=df['torget_'+pollutant]+df['torget_new_'+pollutant]
+#     df = df.drop(df.columns[df.columns.str.startswith('torget_new')],axis=1)
 
 df = df.dropna()
 
 test_sensor_labels = np.array(df.pop(test_sensor+'_'+pollutant+'_nilu'))
 
+if train_sensor=='elgeseter' and test_sensor=='torget' and pollutant=='pm10':
+    df['elgeseter_pm10']=df['torget_pm10']
+    df['elgeseter_opctemp']=df['torget_opctemp']
+    df['elgeseter_opchum']=df['torget_opchum']
+    df = df.drop(['torget_opchum','torget_opctemp','torget_pm10'], axis=1)
+
+if train_sensor=='elgeseter' and test_sensor=='torget' and pollutant=='pm25':
+    df['elgeseter_pm25']=df['torget_pm25']
+    df['elgeseter_opctemp']=df['torget_opctemp']
+    df['elgeseter_opchum']=df['torget_opchum']
+    df = df.drop(['torget_opchum','torget_opctemp','torget_pm25'], axis=1)    
+
+if train_sensor=='torget' and test_sensor=='elgeseter' and pollutant=='pm10':
+    df['torget_pm10']=df['elgeseter_pm10']
+    df['torget_opctemp']=df['elgeseter_opctemp']
+    df['torget_opchum']=df['elgeseter_opchum']
+    df = df.drop(['elgeseter_opchum','elgeseter_opctemp','elgeseter_pm10'], axis=1)
+
+if train_sensor=='torget' and test_sensor=='elgeseter' and pollutant=='pm25':
+    df['torget_pm25']=df['elgeseter_pm25']
+    df['torget_opctemp']=df['elgeseter_opctemp']
+    df['torget_opchum']=df['elgeseter_opchum']
+    df = df.drop(['elgeseter_opchum','elgeseter_opctemp','elgeseter_pm25'], axis=1)
+
 
 test_sensor_rf_predictions = model.predict(df)
 
-plot_predictions(test_sensor_labels,test_sensor_rf_predictions)
+plot_predictions(test_sensor_labels,test_sensor_rf_predictions,str(train_sensor) + ' as train sensor, ' + str(test_sensor) + ' as test sensor')
 
 with open('results.txt', 'w') as f:
     f.write('Train '+train_sensor+' RMSE: %.2f' 
@@ -282,7 +305,6 @@ print('Test '+train_sensor+' R^2: %.2f'
       % r2_score(test_labels,test_rf_predictions))
 
 print('\n')
-
 
 print('Test '+test_sensor+' RMSE: %.2f' 
       % mean_squared_error(test_sensor_rf_predictions,test_sensor_labels,squared=False))
